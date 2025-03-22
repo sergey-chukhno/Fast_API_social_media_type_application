@@ -3,7 +3,7 @@ name: Build and Deploy Code
 on: [push, pull_request]
 
 jobs: 
-  job1:
+  build:
     environment:
       name: testing
     env:
@@ -65,4 +65,37 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/fastapi:latest
+      
+      - name: Image digest
+        run: echo ${{ steps.buildx.outputs.digest }}
+  
+  deploy:
+    needs: build
+    environment:
+      name: production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Heroku
+        uses: akhileshns/heroku-deploy@v3.12.12
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          usedocker: true
+          healthcheck: /health
+          appdir: .
+          container_process: 'gunicorn -k uvicorn.workers.UvicornWorker main:app
+      
+      - name: Deploy to ubuntu server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_PASSWORD }}
+          script: |
+            cd app/src
+            git pull 
+            echo ${{ secrets.PROD_PASWWORD }} | sudo -S systemctl restart api
+          
+
          
