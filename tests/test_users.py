@@ -1,19 +1,9 @@
 from app import schemas
-from tests.database import client, session
+from jose import jwt
+from app.config import settings
 import pytest
 
-@pytest.fixture
-def test_user(session, client):
-  user_data = {
-    "email": "sergey@gmail.com",
-    "password": "password123"
-  }
-  response = client.post("/users/", json = user_data) 
-  assert response.status_code == 201
-  print(response.json())
-  new_user = response.json()
-  new_user['password'] = user_data['password']
-  return new_user
+
 
 # def test_root(client):
 #   response = client.get("/")
@@ -41,7 +31,9 @@ def test_login_user(test_user, client):
   }
   )
   login_response = schemas.Token(**response.json())
-  payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
+  payload = jwt.decode(login_response.access_token, settings.secret_key, algorithms=[settings.algorithm])
   id: str = payload.get("user_id")
+  assert id == test_user['id']
+  assert login_response.token_type == "bearer"
   assert response.status_code == 200
   print(response.json())
